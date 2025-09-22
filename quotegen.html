@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Random Quote Generator</title>
+  <style>
+    :root{--bg:#0f1724;--card:#071028;--accent:#06b6d4;--muted:#9aa4b2}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;color:#e6eef6;background:linear-gradient(180deg,#04111a 0%,#07202b 100%);}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:28px}
+    .card{width:100%;max-width:760px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:28px;box-shadow:0 12px 40px rgba(4,8,20,0.6);border:1px solid rgba(255,255,255,0.03)}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    header h1{font-size:20px;margin:0}
+    header p{margin:0;color:var(--muted);font-size:13px}
+
+    .quote-wrap{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+    .quote{padding:22px;border-radius:12px;background:rgba(255,255,255,0.02);font-size:20px;line-height:1.4;min-height:120px;display:flex;align-items:center}
+    .author{font-size:14px;color:var(--muted);margin-top:8px;text-align:right}
+
+    .controls{display:flex;gap:8px;flex-direction:row;align-items:center;margin-top:14px}
+    .btn{background:var(--accent);border:none;color:#003;font-weight:700;padding:10px 14px;border-radius:10px;cursor:pointer}
+    .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.05);color:var(--muted);font-weight:600}
+    .btn.icon{padding:8px 10px;border-radius:10px}
+
+    .small{font-size:13px;color:var(--muted)}
+    .fade{transition:opacity .28s ease, transform .28s ease}
+    .hidden{opacity:0;transform:translateY(6px)}
+
+    footer{display:flex;justify-content:space-between;align-items:center;margin-top:16px;color:var(--muted);font-size:13px}
+
+    @media (max-width:520px){.card{padding:16px}.quote{font-size:18px}.controls{flex-direction:column;align-items:stretch}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <main class="card" role="main" aria-labelledby="title">
+      <header>
+        <div>
+          <h1 id="title">Random Quote Generator</h1>
+          <p>Click <strong>New Quote</strong> for inspiration — works offline.</p>
+        </div>
+        <div aria-hidden="true">"</div>
+      </header>
+
+      <section class="quote-wrap">
+        <div>
+          <div id="quoteBox" class="quote fade">Loading...</div>
+          <div id="author" class="author small"></div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button id="newBtn" class="btn">New Quote</button>
+          <button id="copyBtn" class="btn icon secondary" title="Copy quote">Copy</button>
+          <button id="tweetBtn" class="btn icon secondary" title="Share on Twitter">Tweet</button>
+        </div>
+      </section>
+
+      <div class="controls">
+        <div class="small">Source: built-in collection <span id="count">(0)</span></div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button id="fetchBtn" class="btn secondary">Fetch online quote</button>
+          <button id="addBtn" class="btn secondary">Add quote</button>
+        </div>
+      </div>
+
+      <div id="addPane" style="display:none;margin-top:12px">
+        <input id="addText" type="text" placeholder="Quote text" style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;margin-bottom:8px" />
+        <input id="addAuthor" type="text" placeholder="Author (optional)" style="width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;margin-bottom:8px" />
+        <div style="display:flex;gap:8px">
+          <button id="saveAdd" class="btn">Save</button>
+          <button id="cancelAdd" class="btn secondary">Cancel</button>
+        </div>
+      </div>
+
+      <footer>
+        <div class="small">Tip: double-click the quote to copy it.</div>
+        <div class="small">Made with ❤️</div>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    // Built-in quotes. You can extend this array or load from an API.
+    const builtIn = [
+      {text: "The only way to do great work is to love what you do.", author: "Steve Jobs"},
+      {text: "Life is what happens when you're busy making other plans.", author: "John Lennon"},
+      {text: "Do not pray for an easy life, pray for the strength to endure a difficult one.", author: "Bruce Lee"},
+      {text: "Be yourself; everyone else is already taken.", author: "Oscar Wilde"},
+      {text: "If you can dream it, you can do it.", author: "Walt Disney"},
+      {text: "It does not matter how slowly you go as long as you do not stop.", author: "Confucius"},
+      {text: "We are what we repeatedly do. Excellence, then, is not an act but a habit.", author: "Aristotle"},
+      {text: "The harder I work, the luckier I get.", author: "Samuel Goldwyn"},
+      {text: "Success usually comes to those who are too busy to be looking for it.", author: "Henry David Thoreau"},
+      {text: "You miss 100% of the shots you don't take.", author: "Wayne Gretzky"}
+    ];
+
+    // Elements
+    const quoteBox = document.getElementById('quoteBox');
+    const authorEl = document.getElementById('author');
+    const newBtn = document.getElementById('newBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const tweetBtn = document.getElementById('tweetBtn');
+    const fetchBtn = document.getElementById('fetchBtn');
+    const addBtn = document.getElementById('addBtn');
+    const addPane = document.getElementById('addPane');
+    const addText = document.getElementById('addText');
+    const addAuthor = document.getElementById('addAuthor');
+    const saveAdd = document.getElementById('saveAdd');
+    const cancelAdd = document.getElementById('cancelAdd');
+    const count = document.getElementById('count');
+
+    let quotes = JSON.parse(localStorage.getItem('rq_quotes') || 'null') || builtIn.slice();
+    let lastIndex = -1;
+
+    function updateCount(){ count.textContent = `(${quotes.length})`; }
+    function show(q){
+      quoteBox.classList.add('hidden');
+      setTimeout(()=>{
+        quoteBox.textContent = q.text;
+        authorEl.textContent = q.author ? '— ' + q.author : '';
+        quoteBox.classList.remove('hidden');
+      }, 220);
+    }
+
+    function pickRandom(){
+      if(quotes.length === 0) return {text:'No quotes available', author:''};
+      if(quotes.length === 1) return quotes[0];
+      let i; do { i = Math.floor(Math.random()*quotes.length); } while(i === lastIndex);
+      lastIndex = i; return quotes[i];
+    }
+
+    function newQuote(){ show(pickRandom()); }
+    function copyQuote(){ const text = quoteBox.textContent + (authorEl.textContent ? ' ' + authorEl.textContent : ''); navigator.clipboard.writeText(text).then(()=>{ alert('Copied to clipboard'); }); }
+    function tweetQuote(){ const txt = quoteBox.textContent + (authorEl.textContent ? ' ' + authorEl.textContent : ''); const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(txt)}`; window.open(url, '_blank'); }
+
+    // Optional: fetch a quote from public API (if available)
+    async function fetchOnline(){
+      try{
+        fetchBtn.textContent = 'Fetching...';
+        const resp = await fetch('https://api.quotable.io/random');
+        if(!resp.ok) throw new Error('Failed');
+        const obj = await resp.json();
+        const q = { text: obj.content, author: obj.author };
+        show(q);
+      }catch(e){ alert('Could not fetch online quote.'); }
+      finally{ fetchBtn.textContent = 'Fetch online quote'; }
+    }
+
+    // Add quotes UI
+    addBtn.addEventListener('click', ()=>{ addPane.style.display = addPane.style.display === 'none' ? 'block' : 'none'; addText.focus(); });
+    cancelAdd.addEventListener('click', ()=>{ addPane.style.display = 'none'; addText.value=''; addAuthor.value=''; });
+    saveAdd.addEventListener('click', ()=>{
+      const t = addText.value.trim(); const a = addAuthor.value.trim();
+      if(!t){ alert('Enter a quote text'); return; }
+      quotes.push({text:t, author:a});
+      localStorage.setItem('rq_quotes', JSON.stringify(quotes));
+      addPane.style.display='none'; addText.value=''; addAuthor.value=''; updateCount(); alert('Saved');
+    });
+
+    // Events
+    newBtn.addEventListener('click', newQuote);
+    copyBtn.addEventListener('click', copyQuote);
+    tweetBtn.addEventListener('click', tweetQuote);
+    fetchBtn.addEventListener('click', fetchOnline);
+
+    // double-click to copy
+    quoteBox.addEventListener('dblclick', copyQuote);
+
+    // keyboard shortcut: space/new line for new quote
+    document.addEventListener('keydown', (e)=>{ if(e.code === 'Space') { e.preventDefault(); newQuote(); } });
+
+    // init
+    updateCount(); newQuote();
+  </script>
+</body>
+</html>
+
